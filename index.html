@@ -1,52 +1,259 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TiRealm 钛净界 | 隐若无形，净若新生</title>
-  <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TIREALM 钛净界</title>
+    <style>
+        /* --- 1. 全局与品牌基调 --- */
+        :root {
+            --primary-color: #2c3e50; /* 深钛灰 */
+            --accent-color: #00bcd4; /* 净化蓝 */
+            --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: 1px solid rgba(255, 255, 255, 0.5);
+            --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg-gradient);
+            color: var(--primary-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* --- 2. 核心容器 (手机端卡片) --- */
+        .container {
+            width: 90%;
+            max-width: 400px; /* 限制最大宽度，适配桌面 */
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px); /* 毛玻璃特效 */
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 20px;
+            border: var(--glass-border);
+            box-shadow: var(--shadow);
+            padding: 40px 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        /* --- 3. 品牌元素 --- */
+        .logo {
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: 4px;
+            margin-bottom: 5px;
+            background: -webkit-linear-gradient(45deg, #333, #00bcd4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .slogan {
+            font-size: 0.9rem;
+            color: #666;
+            font-weight: 300;
+            margin-bottom: 40px;
+            letter-spacing: 2px;
+            position: relative;
+        }
+        
+        .slogan::after {
+            content: '';
+            display: block;
+            width: 30px;
+            height: 2px;
+            background: var(--accent-color);
+            margin: 15px auto 0;
+        }
+
+        /* --- 4. 交互区域 --- */
+        .search-box {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        input {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.9);
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+            font-size: 16px;
+            box-sizing: border-box; /* 修复padding导致的溢出 */
+            outline: none;
+            text-align: center;
+            transition: 0.3s;
+        }
+        
+        input:focus {
+            box-shadow: inset 0 2px 5px rgba(0,188,212,0.2);
+        }
+
+        .btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 30px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.3s;
+            margin-top: 10px;
+            box-shadow: 0 4px 15px rgba(44, 62, 80, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(44, 62, 80, 0.4);
+        }
+
+        /* --- 5. 数据展示区域 (默认隐藏) --- */
+        .result-card {
+            display: none; /* 默认隐藏 */
+            margin-top: 30px;
+            text-align: left;
+            border-top: 1px solid rgba(0,0,0,0.05);
+            padding-top: 20px;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .section-title {
+            font-size: 0.8rem;
+            color: var(--accent-color);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 15px;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            color: #555;
+        }
+        
+        .data-label { color: #999; }
+        .status-tag {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .status-ok { background: #e8f5e9; color: #2e7d32; } /* 正常/在库 */
+        .status-out { background: #e3f2fd; color: #1565c0; } /* 出库 */
+
+        .footer {
+            margin-top: 40px;
+            font-size: 12px;
+            color: #aaa;
+        }
+    </style>
 </head>
-
 <body>
-  <header class="header">
-    <img src="assets/logo.svg" class="logo" alt="TiRealm Logo" />
-  </header>
 
-  <section class="hero">
-    <h1>隐若无形，净若新生</h1>
-    <p>3 纳米光催化 · 隐形成膜 · 长效空间净化品牌</p>
-  </section>
+    <div class="container">
+        <div class="logo">TIREALM</div>
+        <div class="slogan">隐若无形，净若新生</div>
 
-  <section class="features">
-    <h2>为什么选择 TiRealm</h2>
-    <div class="grid">
-      <div class="item">3 纳米级光催化材料</div>
-      <div class="item">可见光驱动反应</div>
-      <div class="item">持久成膜，隐形保护</div>
-      <div class="item">无耗材 · 零添加 · 安全环保</div>
-      <div class="item">提升室内空气品质</div>
-      <div class="item">权威第三方检测验证</div>
+        <div class="search-box">
+            <input type="text" id="productCode" placeholder="输入产品唯一识别码 (如: TI001)">
+            <button class="btn" onclick="queryData()">查询产品档案</button>
+        </div>
+
+        <div id="resultArea" class="result-card">
+            
+            <div class="section-title">产品生命周期 (Lifecycle)</div>
+            <div class="data-row">
+                <span class="data-label">产品名称</span>
+                <span id="pName">光触媒喷剂 Pro</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">生产批次</span>
+                <span id="pBatch">202311-A</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">当前状态</span>
+                <span id="pStatus" class="status-tag status-out">已出库</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">出库时间</span>
+                <span id="pOutDate">2023-10-15</span>
+            </div>
+
+            <div class="section-title">施工/应用记录 (Service Log)</div>
+            <div class="data-row">
+                <span class="data-label">施工单位</span>
+                <span id="cTeam">钛净界第一工程队</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">客户名称</span>
+                <span id="cClient">某互联网总部大楼</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">施工部位</span>
+                <span id="cArea">VIP会议室/吸烟区</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">治理结果</span>
+                <span style="color:var(--accent-color)">甲醛达标 / 异味消除</span>
+            </div>
+        </div>
+        
+        <div class="footer">
+            © 2024 TIREALM Technology.
+        </div>
     </div>
-  </section>
 
-  <section class="demo">
-    <h2>TiRealm 展示盒</h2>
-    <p>真实、可视化的空气净化演示系统</p>
-    <img src="assets/demo.jpg" class="demo-img" alt="展示盒占位图（可替换）" />
-  </section>
+    <script>
+        // --- 模拟后台数据库 (实际项目中这里会替换成API调用) ---
+        // 假设这是你的后台数据
+        const database = {
+            "TI001": {
+                name: "钛净界全效喷雾 500ml",
+                batch: "202311-A01",
+                status: "已施工作业",
+                outDate: "2023-11-20",
+                team: "直营工程部",
+                client: "华润大厦 28F",
+                area: "总裁办公室",
+                result: "优 (0.02mg/m³)"
+            },
+            "TI002": {
+                name: "车载净化原液",
+                batch: "202312-B05",
+                status: "仓库中",
+                outDate: "-",
+                team: "-",
+                client: "-",
+                area: "-",
+                result: "-"
+            }
+        };
 
-  <section class="scenes">
-    <h2>适用场景</h2>
-    <ul>
-      <li>家庭 · 新装修 / 老房翻新</li>
-      <li>酒店 · 会所 · 高端商业空间</li>
-      <li>车内 · 长期空间净化</li>
-    </ul>
-  </section>
+        function queryData() {
+            // 1. 获取输入框的值
+            const code = document.getElementById('productCode').value.trim();
+            const resultArea = document.getElementById('resultArea');
+            
+            // 2. 简单的交互反馈
+            if(!code) {
+                alert("请输入或扫描产品编码");
+                return;
+            }
 
-  <footer class="footer">
-    <p>TiRealm 钛净界 © 2025</p>
-    <p>备案号（上线后填写）</p>
-  </footer>
-</body>
-</html>
+            // 3.
