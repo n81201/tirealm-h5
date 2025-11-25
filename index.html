@@ -1,179 +1,344 @@
-<script>
-    /* === 6.0版：Supabase API 集成 (Read + Write + RLS) === */
-
-// ======================== 配置区 (已填充你的密钥) =========================
-    // 1. 你的 Supabase 项目 URL
-    const SUPABASE_URL = 'https://hehevgyochjcpovhfhhc.supabase.co'; 
-    // 2. 你的 Anon Key
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhlaGV2Z3lvY2hqY3BvdmhmaGhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwNzk1OTAsImV4cCI6MjA3OTY1NTU5MH0.9ize83B3jZo0iLC7-OvknDYWVMb6GqW_YN5gcFiLguU'; 
-    // ======================================================
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TiRealm 产品档案查询与服务登记</title>
     
-    const PRODUCTS_TABLE = 'products';
-    const SERVICES_TABLE = 'service_logs';
+    <style>
+        :root {
+            --primary-color: #004d40; /* 深绿色 */
+            --secondary-color: #e0f2f1; /* 浅绿色背景 */
+            --accent-color: #ff9800; /* 橙色，用于行动按钮 */
+            --used-color: #e53935; /* 红色，用于已施工状态 */
+            --ok-color: #43a047; /* 绿色，用于在库状态 */
+        }
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--secondary-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            box-sizing: border-box;
+        }
+        h2 {
+            color: var(--primary-color);
+            text-align: center;
+            margin-bottom: 25px;
+            font-weight: 500;
+        }
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        .search-box input {
+            flex-grow: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            text-transform: uppercase;
+        }
+        .btn {
+            padding: 12px 20px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .btn:hover:not(:disabled) {
+            background-color: #00796b;
+        }
+        .btn:disabled {
+            background-color: #b0bec5;
+            cursor: not-allowed;
+        }
+        .result-card {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 5px solid var(--accent-color);
+            margin-top: 20px;
+        }
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+        .label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        .value {
+            font-weight: bold;
+            color: var(--primary-color);
+            text-align: right;
+        }
+        .status-tag {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 5px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: white;
+            margin-left: 10px;
+        }
+        .status-ok {
+            background-color: var(--ok-color);
+        }
+        .status-used {
+            background-color: var(--used-color);
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>TiRealm 产品档案</h2>
 
-    // --- 全局变量用于存储已验证的产品编码 ---
-    let validatedCode = null;
+        <div class="search-box">
+            <input type="text" id="productCode" placeholder="输入或扫描产品编码 (TI-XXXX)" onkeyup="if(event.key === 'Enter') queryData()" required>
+            <button class="btn" onclick="queryData()">查询档案</button>
+        </div>
 
-    // =====================================================
-    // A. 查询/防伪/读取 逻辑 (queryData)
-    // =====================================================
-    async function queryData() {
-        const codeInput = document.getElementById('productCode');
-        let inputVal = codeInput.value.trim().toUpperCase();
-        const resultArea = document.getElementById('resultArea');
-        const inputFormArea = document.getElementById('inputFormArea');
-        const queryBtn = document.querySelector('.search-box .btn');
+        <div id="resultArea" class="result-card" style="display: none;">
+            <div class="result-item">
+                <span class="label">产品编码：</span>
+                <span class="value" id="pCode"></span>
+            </div>
+            <div class="result-item">
+                <span class="label">状态：</span>
+                <span class="value">
+                    <span id="pStatus" class="status-tag"></span>
+                </span>
+            </div>
+            <div class="result-item">
+                <span class="label">批次：</span>
+                <span class="value" id="pBatch"></span>
+            </div>
+            <hr style="margin: 10px 0; border: none; border-top: 1px dashed #eee;">
+            <div class="result-item">
+                <span class="label">上次施工技师/门店：</span>
+                <span class="value" id="cTech"></span>
+            </div>
+            <div class="result-item">
+                <span class="label">上次客户信息/车牌：</span>
+                <span class="value" id="cClient"></span>
+            </div>
+            <div class="result-item">
+                <span class="label">上次施工日期：</span>
+                <span class="value" id="cDate"></span>
+            </div>
+        </div>
+
+        <div id="inputFormArea" class="result-card" style="display: none; border-left: 5px solid var(--ok-color);">
+            <div style="margin: 5px 0 10px 0; font-size: 0.9rem; color: var(--ok-color); font-weight: bold; border-top: 1px dashed #ddd; padding-top: 15px;">
+                ✅ 产品已验真，请登记本次施工信息：
+            </div>
+            
+            <form id="serviceForm"> 
+                <div class="input-group">
+                    <label style="display:block; text-align: left; font-size: 0.8rem; color:#666; margin-bottom: 5px;">施工技师 / 门店</label>
+                    <input type="text" id="techInput" placeholder="请输入技师姓名/门店名" required>
+                </div>
+
+                <div class="input-group" style="margin-top: 15px;">
+                    <label style="display:block; text-align: left; font-size: 0.8rem; color:#666; margin-bottom: 5px;">客户信息 / 车牌号</label>
+                    <input type="text" id="clientInput" placeholder="例如: 粤A·88888" required>
+                </div>
+
+                <button type="submit" id="serviceBtn" class="btn" style="background: var(--accent-color); margin-top: 25px;">确认完成施工登记</button>
+                <div id="writeMsg" class="success-msg" style="display:none; color:#2e7d32; font-weight:bold; margin-top: 10px;">✅ 登记成功，数据已上传！</div>
+            </form>
+        </div>
+
+    </div>
+    
+    <script>
+        // 你已经提供的、包含密钥的完整 JS 代码块
         
-        validatedCode = null; // 重置
-        resultArea.style.display = 'none';
-        inputFormArea.style.display = 'none';
+        /* === 6.0版：Supabase API 集成 (Read + Write + RLS) === */
 
-        if(!inputVal) { alert("请输入编码"); return; }
+        // ======================== 配置区 (已填充你的密钥) =========================
+        const SUPABASE_URL = 'https://hehevgyochjcpovhfhhc.supabase.co'; 
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhlaGV2Z3lvY2hqY3BvdmhmaGhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwNzk1OTAsImV4cCI6MjA3OTY1NTU5MH0.9ize83B3jZo0iLC7-OvknDYWVMb6GqW_YN5gcFiLguU'; 
+        // ======================================================
         
-        queryBtn.innerText = "正在验证...";
-        queryBtn.disabled = true;
+        const PRODUCTS_TABLE = 'products';
+        const SERVICES_TABLE = 'service_logs';
 
-        try {
-            // 1. 构造查询 URL：查询 code 等于输入值的记录
-            // select=* 表示查询所有字段；eq 是过滤操作符
-            const url = `${SUPABASE_URL}/rest/v1/${PRODUCTS_TABLE}?code=eq.${inputVal}&select=*`;
+        let validatedCode = null;
 
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: { 
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                }
-            });
-            const records = await response.json(); // Supabase API 返回 JSON 数组
+        // =====================================================
+        // A. 查询/防伪/读取 逻辑 (queryData)
+        // =====================================================
+        async function queryData() {
+            const codeInput = document.getElementById('productCode');
+            let inputVal = codeInput.value.trim().toUpperCase();
+            const resultArea = document.getElementById('resultArea');
+            const inputFormArea = document.getElementById('inputFormArea');
+            const queryBtn = document.querySelector('.search-box .btn');
+            
+            validatedCode = null;
+            resultArea.style.display = 'none';
+            inputFormArea.style.display = 'none';
 
-            if (records && records.length > 0) {
-                const record = records[0]; // 获取匹配的记录
-                
-                // 验证成功，存储产品编码 (用于后续写入)
-                validatedCode = record.code.toUpperCase();
-                
-                // 填充并显示查询结果
-                document.getElementById('pCode').innerText = validatedCode;
-                document.getElementById('pName').innerText = record.name || 'TiRealm 产品'; 
-                document.getElementById('pBatch').innerText = record.batch || '-';
-                
-                const status = record.status || 'in_stock';
-                const statusBadge = document.getElementById('pStatus');
-                statusBadge.innerText = status === 'serviced' ? '已完成施工' : '在库待激活';
-                statusBadge.className = "status-tag";
-                
-                // 状态判断
-                if (status === 'serviced') {
-                    statusBadge.classList.add("status-used");
-                    inputFormArea.style.display = 'none'; 
-                    // 假设你可以在 products 表中 Lookup 关联的服务记录信息
-                    // 暂时显示通用信息，因为我们没有复杂查询关联表
-                    document.getElementById('cTech').innerText = '已登记 (查询后台)';
-                    document.getElementById('cClient').innerText = '已登记 (查询后台)';
-                    document.getElementById('cDate').innerText = record.updated_at ? new Date(record.updated_at).toLocaleDateString() : '-';
+            if(!inputVal) { alert("请输入编码"); return; }
+            
+            queryBtn.innerText = "正在验证...";
+            queryBtn.disabled = true;
+
+            try {
+                const url = `${SUPABASE_URL}/rest/v1/${PRODUCTS_TABLE}?code=eq.${inputVal}&select=*`;
+
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: { 
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    }
+                });
+                const records = await response.json(); 
+
+                if (records && records.length > 0) {
+                    const record = records[0];
+                    validatedCode = record.code.toUpperCase();
                     
+                    document.getElementById('pCode').innerText = validatedCode;
+                    document.getElementById('pName').innerText = record.name || 'TiRealm 产品'; 
+                    document.getElementById('pBatch').innerText = record.batch || '-';
+                    
+                    const status = record.status || 'in_stock';
+                    const statusBadge = document.getElementById('pStatus');
+                    statusBadge.innerText = status === 'serviced' ? '已完成施工' : '在库待激活';
+                    statusBadge.className = "status-tag";
+                    
+                    if (status === 'serviced') {
+                        statusBadge.classList.add("status-used");
+                        inputFormArea.style.display = 'none'; 
+                        document.getElementById('cTech').innerText = '已登记 (查询后台)';
+                        document.getElementById('cClient').innerText = '已登记 (查询后台)';
+                        document.getElementById('cDate').innerText = record.updated_at ? new Date(record.updated_at).toLocaleDateString() : '-';
+                        
+                    } else {
+                        statusBadge.classList.add("status-ok");
+                        inputFormArea.style.display = 'block'; 
+                        document.getElementById('cTech').innerText = '暂未登记';
+                        document.getElementById('cClient').innerText = '暂未登记';
+                        document.getElementById('cDate').innerText = '-';
+                    }
+                    
+                    resultArea.style.display = 'block';
+
                 } else {
-                    statusBadge.classList.add("status-ok");
-                    // 验真成功且未施工，显示录入表单
-                    inputFormArea.style.display = 'block'; 
-                    document.getElementById('cTech').innerText = '暂未登记';
-                    document.getElementById('cClient').innerText = '暂未登记';
-                    document.getElementById('cDate').innerText = '-';
+                    alert("查无此码，非正品或编码错误，请核对！");
+                    resultArea.style.display = 'none';
+                    validatedCode = null;
                 }
                 
-                resultArea.style.display = 'block';
-
-            } else {
-                // 验证失败，防伪功能生效 (RLS在这里起了作用，如果编码不存在，返回空数组)
-                alert("查无此码，非正品或编码错误，请核对！");
-                resultArea.style.display = 'none';
-                validatedCode = null;
+            } catch (error) {
+                console.error("查询失败:", error);
+                alert("数据库连接失败或网络错误！");
+            } finally {
+                queryBtn.innerText = "查询档案";
+                queryBtn.disabled = false;
             }
+        }
+
+        // =====================================================
+        // B. 施工录入/写入 逻辑 (submitService)
+        // =====================================================
+        document.getElementById('serviceForm').addEventListener('submit', async function(e) {
+            e.preventDefault(); 
             
-        } catch (error) {
-            console.error("查询失败:", error);
-            alert("数据库连接失败或网络错误！");
-        } finally {
-            queryBtn.innerText = "查询档案";
-            queryBtn.disabled = false;
-        }
-    }
-
-    // =====================================================
-    // B. 施工录入/写入 逻辑 (submitService)
-    // =====================================================
-    document.getElementById('serviceForm').addEventListener('submit', async function(e) {
-        e.preventDefault(); 
-        
-        if (!validatedCode) {
-            alert("请先验证产品编码！");
-            return;
-        }
-
-        const techInput = document.getElementById('techInput');
-        const clientInput = document.getElementById('clientInput');
-        const serviceBtn = document.getElementById('serviceBtn');
-        const writeMsg = document.getElementById('writeMsg');
-        
-        serviceBtn.innerText = "上传中...";
-        serviceBtn.disabled = true;
-        
-        // 1. 构建写入 service_logs 表的数据对象
-        const data = {
-            product_code_ref: validatedCode, // 写入外键
-            client_info: clientInput.value.trim(),
-            technician_name: techInput.value.trim()
-        };
-
-        try {
-            // 2. 写入 service_logs 表
-            // RLS 此时会检查 Anon Key是否有 INSERT 权限
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/${SERVICES_TABLE}`, {
-                method: 'POST',
-                headers: { 
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                    'Content-Type': 'application/json',
-                    'Prefer': 'return=representation' // 确保返回数据
-                },
-                body: JSON.stringify(data)
-            });
-
-            if (!response.ok) {
-                const errorBody = await response.json();
-                // 如果 RLS 没有配置好，这里会报错：Reason: RLS policy forbids insertion
-                throw new Error(errorBody.message || `Supabase Write Error: ${response.status}`);
+            if (!validatedCode) {
+                alert("请先验证产品编码！");
+                return;
             }
 
-            // 3. 写入成功后：触发器已自动更新 products 表状态！
+            const techInput = document.getElementById('techInput');
+            const clientInput = document.getElementById('clientInput');
+            const serviceBtn = document.getElementById('serviceBtn');
+            const writeMsg = document.getElementById('writeMsg');
             
-            // 清除表单，通知店员
-            serviceBtn.style.display = 'none';
-            writeMsg.style.display = 'block'; 
+            serviceBtn.innerText = "上传中...";
+            serviceBtn.disabled = true;
             
-            // 自动刷新查询结果，让店员看到状态变更为“已施工”
-            setTimeout(() => {
-                queryData(); // 重新查询，利用触发器更新后的状态
-                document.getElementById('serviceForm').reset();
-            }, 1500);
+            const data = {
+                product_code_ref: validatedCode,
+                client_info: clientInput.value.trim(),
+                technician_name: techInput.value.trim()
+            };
 
-        } catch (err) {
-            console.error("登记失败:", err);
-            alert(`登记失败: ${err.message}. 请检查 RLS 或网络配置。`);
-            serviceBtn.innerText = "重试";
-            serviceBtn.disabled = false;
-        }
-    });
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/${SERVICES_TABLE}`, {
+                    method: 'POST',
+                    headers: { 
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation'
+                    },
+                    body: JSON.stringify(data)
+                });
 
-    // C. 页面初始化逻辑 (保持不变)
-    window.onload = function() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const codeFromUrl = urlParams.get('code');
-        
-        if(codeFromUrl) {
-            document.getElementById('productCode').value = codeFromUrl;
-            queryData();
+                if (!response.ok) {
+                    const errorBody = await response.json();
+                    throw new Error(errorBody.message || `Supabase Write Error: ${response.status}`);
+                }
+
+                serviceBtn.style.display = 'none';
+                writeMsg.style.display = 'block'; 
+                
+                setTimeout(() => {
+                    queryData();
+                    document.getElementById('serviceForm').reset();
+                }, 1500);
+
+            } catch (err) {
+                console.error("登记失败:", err);
+                alert(`登记失败: ${err.message}. 请检查 RLS 或网络配置。`);
+                serviceBtn.innerText = "重试";
+                serviceBtn.disabled = false;
+            }
+        });
+
+        // C. 页面初始化逻辑 (保持不变)
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const codeFromUrl = urlParams.get('code');
+            
+            if(codeFromUrl) {
+                document.getElementById('productCode').value = codeFromUrl;
+                queryData();
+            }
         }
-    }
-</script>
+    </script>
+</body>
+</html>
