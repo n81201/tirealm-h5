@@ -6,6 +6,8 @@
     <title>TIREALM 钛净界 - 产品档案及服务登记</title>
     <!-- 引入 Supabase 客户端库 -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- 引入 HTML5-QRCODE 库用于扫码 -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         /* --- 1. 全局与品牌基调 --- */
         :root {
@@ -46,6 +48,7 @@
             padding: 40px 20px;
             text-align: center;
             transition: all 0.3s ease;
+            position: relative; /* 确保 modal 可以定位 */
         }
 
         /* --- 3. 品牌元素 --- */
@@ -94,36 +97,47 @@
             font-size: 16px;
             box-sizing: border-box;
             outline: none;
-            text-align: left; /* 文本框左对齐，便于输入长信息 */
+            text-align: left;
             transition: 0.3s;
         }
         
         input[type="text"][placeholder*="产品唯一识别码"] {
-            text-align: center; /* 确保查询框居中 */
+            text-align: center;
         }
 
         input:focus, textarea:focus {
             box-shadow: inset 0 2px 5px rgba(0,188,212,0.2);
         }
 
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
         .btn {
             background: var(--primary-color);
             color: white;
             border: none;
-            padding: 12px 30px;
+            padding: 12px 0;
             border-radius: 30px;
             font-size: 16px;
             cursor: pointer;
             transition: 0.3s;
-            margin-top: 10px;
             box-shadow: 0 4px 15px rgba(44, 62, 80, 0.3);
-            width: 100%;
+            flex-grow: 1; /* 使按钮组内的按钮平均分配宽度 */
         }
         
-        .btn-accent { /* 用于服务登记按钮 */
+        .btn-secondary {
+            background: #95a5a6; /* 灰色 */
+            box-shadow: 0 4px 15px rgba(149, 165, 166, 0.3);
+        }
+        
+        .btn-accent { 
             background: var(--accent-color);
             box-shadow: 0 4px 15px rgba(0, 188, 212, 0.3);
             margin-top: 20px;
+            width: 100%;
         }
 
         .btn:hover:not(:disabled) {
@@ -172,7 +186,7 @@
             margin-bottom: 8px;
             font-size: 0.9rem;
             color: #555;
-            flex-wrap: wrap; /* 确保长文本能换行 */
+            flex-wrap: wrap; 
         }
         
         .data-label { color: #999; flex-basis: 40%; }
@@ -185,8 +199,8 @@
             font-weight: bold;
             display: inline-block;
         }
-        .status-in_stock { background: #e8f5e9; color: var(--success-color); } /* 在库 */
-        .status-serviced { background: #e3f2fd; color: var(--accent-color); } /* 已施工作业 */
+        .status-in_stock { background: #e8f5e9; color: var(--success-color); } 
+        .status-serviced { background: #e3f2fd; color: var(--accent-color); } 
 
         /* --- 6. 消息提示框 --- */
         #messageBox {
@@ -227,6 +241,46 @@
             font-size: 12px;
             color: #aaa;
         }
+        
+        /* --- 8. 扫码模态框样式 (Scanner Modal) --- */
+        #scannerModal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #reader {
+            width: 90%;
+            max-width: 450px;
+            height: auto;
+            border: 4px solid var(--accent-color);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        
+        #scannerCloseBtn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: var(--danger-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 50px;
+            font-size: 1rem;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(231, 76, 60, 0.4);
+            z-index: 1001;
+        }
     </style>
 </head>
 <body>
@@ -239,7 +293,12 @@
 
         <div class="search-box">
             <input type="text" id="productCode" placeholder="输入产品唯一识别码 (如: TI-7T3V)">
-            <button class="btn" onclick="queryData()">查询产品档案</button>
+            
+            <!-- 扫码按钮和查询按钮并排放置 -->
+            <div class="btn-group">
+                <button class="btn btn-secondary" onclick="startScanner()">📷 扫码输入</button>
+                <button class="btn" onclick="queryData()">🔍 查询档案</button>
+            </div>
         </div>
 
         <div id="resultArea">
@@ -291,7 +350,7 @@
                     <span class="data-label">施工时间</span>
                     <span id="logDate" class="data-value">---</span>
                  </div>
-                 <!-- 新增的解析字段的展示位 -->
+                 <!-- 解析后的客户信息展示位 -->
                  <div class="data-row">
                     <span class="data-label">客户姓名</span>
                     <span id="logClientName" class="data-value">---</span>
@@ -321,17 +380,25 @@
             © 2024 TIREALM Technology.
         </div>
     </div>
+    
+    <!-- 扫码模态框 -->
+    <div id="scannerModal">
+        <button id="scannerCloseBtn" onclick="closeScanner()">❌ 关闭扫描</button>
+        <div id="reader"></div> <!-- 摄像头视图将渲染在这里 -->
+        <p style="color: white; margin-top: 20px;">请将二维码或条形码对准取景框</p>
+    </div>
 
     <script>
         // ======================== 配置区 (请替换为新项目的密钥) =========================
-        // ⚠️ 修复：请务必将以下占位符替换为你真实的 Supabase 项目 URL 和 Anon Key！
-        // 示例 URL 格式：'https://<项目引用ID>.supabase.co'
         const SUPABASE_URL = 'https://evksoxqnxyvtxvzmuufy.supabase.co'; 
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2a3NveHFueHl2dHh2em11dWZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQxMjYwMjEsImV4cCI6MjA3OTcwMjAyMX0.R-n669k8gqOl5US1rFk7vJdqgAcRm_SBWvJPovMdcAU';
         // ======================================================
 
         const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        let currentProductCode = null; // 存储当前查询到的编码，用于登记
+        let currentProductCode = null; 
+        
+        // 全局变量用于管理扫码器实例
+        let html5QrcodeScanner = null; 
 
         // --- 核心工具函数：显示自定义消息 ---
         function displayMessage(message, type = 'error') {
@@ -340,7 +407,6 @@
             box.className = `msg-${type}`;
             box.style.display = 'block';
             
-            // 2秒后自动隐藏
             setTimeout(() => {
                 box.style.display = 'none';
             }, 5000);
@@ -371,28 +437,94 @@
 
             if (!infoString) return parsed;
             
-            // 使用 Map/Reduce 方式解析 "Label: Value | ..." 格式
             infoString.split(' | ').forEach(part => {
                 const [label, ...valueParts] = part.split(': ');
-                const value = valueParts.join(': ').trim(); // 应对值中可能包含冒号的情况
+                const value = valueParts.join(': ').trim(); 
                 
                 if (label.startsWith('客户姓名') && value) parsed.clientName = value;
                 else if (label.startsWith('客户电话') && value) parsed.clientPhone = value;
                 else if (label.startsWith('施工地址') && value) parsed.serviceAddress = value;
                 else if (label.startsWith('施工部位') && value) parsed.serviceArea = value;
-                // 兼容旧格式，如果解析失败，则将原始信息赋给地址
                 else if (infoString.length < 50) parsed.serviceAddress = infoString;
             });
 
             return parsed;
         }
         
+        // --- 扫码逻辑：启动扫描器 ---
+        function startScanner() {
+            document.getElementById('scannerModal').style.display = 'flex';
+            
+            // 确保只初始化一次
+            if (!html5QrcodeScanner) {
+                // 使用 'reader' div ID 来初始化扫描器
+                html5QrcodeScanner = new Html5Qrcode("reader");
+            }
+            
+            // 配置扫描参数：优先使用后置摄像头 (environment)
+            const config = { 
+                fps: 10, 
+                qrbox: { width: 250, height: 250 }, 
+                disableFlip: false 
+            };
+
+            // 开始扫描，优先请求后置摄像头
+            html5QrcodeScanner.start(
+                { facingMode: "environment" }, 
+                config, 
+                onScanSuccess, 
+                onScanError
+            ).catch((err) => {
+                // 如果启动失败（例如无摄像头权限或无后置摄像头），给出提示并关闭
+                console.error("Scanner startup failed:", err);
+                displayMessage("无法启动摄像头，请检查权限或尝试手动输入。", 'error');
+                closeScanner();
+            });
+        }
+        
+        // 扫码成功回调
+        function onScanSuccess(decodedText, decodedResult) {
+            // 停止扫描
+            html5QrcodeScanner.stop().then((ignore) => {
+                // 关闭模态框
+                document.getElementById('scannerModal').style.display = 'none';
+                
+                // 填充输入框并自动查询
+                document.getElementById('productCode').value = decodedText.toUpperCase().trim();
+                displayMessage(`识别成功：${decodedText}，正在查询档案...`, 'success');
+                queryData();
+
+            }).catch((err) => {
+                console.error("Failed to stop scanner:", err);
+            });
+        }
+        
+        // 扫码错误回调（不中断扫描）
+        function onScanError(errorMessage) {
+            // 持续扫描过程中会产生大量错误信息，忽略，只在成功时处理
+        }
+        
+        // 关闭扫描器
+        function closeScanner() {
+            if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
+                html5QrcodeScanner.stop().then(() => {
+                    document.getElementById('scannerModal').style.display = 'none';
+                }).catch((err) => {
+                    // 即使停止失败，也强制关闭模态框
+                    document.getElementById('scannerModal').style.display = 'none';
+                    console.error("Failed to stop scanner cleanly.", err);
+                });
+            } else {
+                 document.getElementById('scannerModal').style.display = 'none';
+            }
+        }
+
+
         // --- A. 查询产品档案 (SELECT) 逻辑 ---
         async function queryData() {
             const codeInput = document.getElementById('productCode');
             let inputVal = codeInput.value.trim().toUpperCase();
             
-            // 重置界面
             document.getElementById('resultArea').style.display = 'none';
             document.getElementById('serviceFormArea').style.display = 'none';
             document.getElementById('serviceLogDisplay').style.display = 'none';
@@ -403,16 +535,13 @@
                 return;
             }
 
-            // 核心修正：自动补全 'TI-' 前缀
-            if (!inputVal.startsWith('TI-') && inputVal.length >= 4) { // 至少输入4位数字或字母，我们假设是编码部分
+            if (!inputVal.startsWith('TI-') && inputVal.length >= 4) { 
                 inputVal = 'TI-' + inputVal;
             }
 
-            // 记录最终查询的编码
             currentProductCode = inputVal;
             
-            // 锁定按钮，防止重复点击
-            document.querySelector('.btn').disabled = true;
+            document.querySelectorAll('.btn').forEach(btn => btn.disabled = true);
 
             const { data: products, error } = await client
                 .from('products')
@@ -420,19 +549,17 @@
                 .eq('code', currentProductCode)
                 .limit(1);
 
-            // 释放按钮
-            document.querySelector('.btn').disabled = false;
+            document.querySelectorAll('.btn').forEach(btn => btn.disabled = false);
 
             if (error) {
                 console.error('Supabase Query Error:', error);
-                displayMessage(`数据库连接失败或网络错误！请检查 SUPABASE_URL 和 KEY 是否正确配置。`);
+                displayMessage(`数据库连接失败或网络错误！`);
                 return;
             }
 
             if (products && products.length > 0) {
                 const product = products[0];
                 
-                // 填充产品详情
                 document.getElementById('pCode').innerText = product.code;
                 document.getElementById('pName').innerText = product.name;
                 document.getElementById('pBatch').innerText = product.batch;
@@ -444,12 +571,10 @@
                 document.getElementById('resultArea').style.display = 'block';
 
                 if (product.status === 'in_stock') {
-                    // 产品在库，显示登记表单
                     document.getElementById('serviceFormArea').style.display = 'block';
                     document.getElementById('serviceLogDisplay').style.display = 'none'; 
                     
                 } else if (product.status === 'serviced') {
-                    // 产品已服务，尝试获取最新的服务记录并显示
                     await fetchAndDisplayServiceLog(currentProductCode);
                     document.getElementById('serviceFormArea').style.display = 'none'; 
                     document.getElementById('serviceLogDisplay').style.display = 'block';
@@ -470,7 +595,6 @@
                 .limit(1);
 
             if (error || !logs || logs.length === 0) {
-                 // 修正：如果记录丢失，但产品状态已经是 serviced，则显示明确的错误信息。
                  document.getElementById('logTechName').innerText = '🚨 记录缺失！请联系管理员。';
                  document.getElementById('logDate').innerText = '---';
                  document.getElementById('logClientName').innerText = '---';
@@ -486,7 +610,6 @@
             document.getElementById('logTechName').innerText = log.technician_name || '未填写';
             document.getElementById('logDate').innerText = formatTime(log.created_at);
             
-            // 填充解析后的客户信息
             document.getElementById('logClientName').innerText = parsedInfo.clientName;
             document.getElementById('logClientPhone').innerText = parsedInfo.clientPhone;
             document.getElementById('logServiceAddress').innerText = parsedInfo.serviceAddress;
@@ -503,7 +626,6 @@
             const serviceAddress = document.getElementById('serviceAddress').value.trim();
             const serviceArea = document.getElementById('serviceArea').value.trim();
             
-            // 必填项校验 (确保所有字段都被填写)
             if (!techName || !clientName || !clientPhone || !serviceAddress || !serviceArea) {
                 displayMessage("所有标记 '*' 的登记信息都必须填写完整！");
                 return;
@@ -513,7 +635,6 @@
             registerBtn.disabled = true;
             registerBtn.innerText = '登记中...';
 
-            // ⭐ 核心逻辑：将所有拆分字段合并为一个结构化字符串，存入 client_info
             const combinedClientInfo = [
                 `客户姓名: ${clientName}`,
                 `客户电话: ${clientPhone}`,
@@ -525,10 +646,9 @@
             const logData = {
                 product_code_ref: currentProductCode,
                 technician_name: techName,
-                client_info: combinedClientInfo // 存入合并后的结构化信息
+                client_info: combinedClientInfo
             };
 
-            // RLS 策略允许 anon 用户插入到 service_logs
             const { error } = await client
                 .from('service_logs')
                 .insert([logData]);
@@ -542,17 +662,14 @@
                 return;
             }
 
-            // 登记成功后，由于数据库触发器会自动更新 products.status
             displayMessage(`施工档案登记成功！产品 ${currentProductCode} 已标记为 [已施工作业]`, 'success');
             
-            // ⭐ 修复时序问题：增加延迟 (500ms)，确保数据库事务（INSERT 和 Trigger Update）完全提交后，
-            // 客户端的第二次查询能及时读取到最新的 service_logs 记录。
             setTimeout(() => {
                 queryData(); // 重新查询数据，更新界面状态和显示服务记录
             }, 500); 
         }
 
-        // --- C. 自动查询功能 (配合二维码扫描) ---
+        // --- C. 自动查询功能 (配合 URL/二维码扫描) ---
         window.onload = function() {
             const urlParams = new URLSearchParams(window.location.search);
             const codeFromUrl = urlParams.get('code');
