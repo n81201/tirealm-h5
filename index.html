@@ -470,7 +470,8 @@
                 .limit(1);
 
             if (error || !logs || logs.length === 0) {
-                 document.getElementById('logTechName').innerText = '数据丢失或记录异常';
+                 // 修正：如果记录丢失，但产品状态已经是 serviced，则显示明确的错误信息。
+                 document.getElementById('logTechName').innerText = '🚨 记录缺失！请联系管理员。';
                  document.getElementById('logDate').innerText = '---';
                  document.getElementById('logClientName').innerText = '---';
                  document.getElementById('logClientPhone').innerText = '---';
@@ -544,8 +545,11 @@
             // 登记成功后，由于数据库触发器会自动更新 products.status
             displayMessage(`施工档案登记成功！产品 ${currentProductCode} 已标记为 [已施工作业]`, 'success');
             
-            // 重新查询数据，更新界面状态和显示服务记录
-            queryData(); 
+            // ⭐ 修复时序问题：增加延迟 (500ms)，确保数据库事务（INSERT 和 Trigger Update）完全提交后，
+            // 客户端的第二次查询能及时读取到最新的 service_logs 记录。
+            setTimeout(() => {
+                queryData(); // 重新查询数据，更新界面状态和显示服务记录
+            }, 500); 
         }
 
         // --- C. 自动查询功能 (配合二维码扫描) ---
@@ -561,4 +565,3 @@
     </script>
 </body>
 </html>
-
