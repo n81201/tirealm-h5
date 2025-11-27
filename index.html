@@ -94,8 +94,12 @@
             font-size: 16px;
             box-sizing: border-box;
             outline: none;
-            text-align: center;
+            text-align: left; /* 文本框左对齐，便于输入长信息 */
             transition: 0.3s;
+        }
+        
+        input[type="text"][placeholder*="产品唯一识别码"] {
+            text-align: center; /* 确保查询框居中 */
         }
 
         input:focus, textarea:focus {
@@ -168,9 +172,12 @@
             margin-bottom: 8px;
             font-size: 0.9rem;
             color: #555;
+            flex-wrap: wrap; /* 确保长文本能换行 */
         }
         
-        .data-label { color: #999; }
+        .data-label { color: #999; flex-basis: 40%; }
+        .data-value { text-align: right; flex-basis: 60%; }
+
         .status-tag {
             padding: 4px 10px;
             border-radius: 8px;
@@ -231,7 +238,7 @@
         <div id="messageBox" class="msg-error"></div> <!-- 消息提示区域 -->
 
         <div class="search-box">
-            <input type="text" id="productCode" placeholder="输入识别码 (如: TI-000001，请输入000001)">
+            <input type="text" id="productCode" placeholder="输入产品唯一识别码 (如: TI-7T3V)">
             <button class="btn" onclick="queryData()">查询产品档案</button>
         </div>
 
@@ -241,19 +248,19 @@
                 <div class="section-title">产品档案信息 (Product File)</div>
                 <div class="data-row">
                     <span class="data-label">识别编码</span>
-                    <span id="pCode">---</span>
+                    <span id="pCode" class="data-value">---</span>
                 </div>
                 <div class="data-row">
                     <span class="data-label">产品名称</span>
-                    <span id="pName">---</span>
+                    <span id="pName" class="data-value">---</span>
                 </div>
                 <div class="data-row">
                     <span class="data-label">生产批次</span>
-                    <span id="pBatch">---</span>
+                    <span id="pBatch" class="data-value">---</span>
                 </div>
                 <div class="data-row">
                     <span class="data-label">当前状态</span>
-                    <span id="pStatusContainer">
+                    <span id="pStatusContainer" class="data-value">
                         <span id="pStatus" class="status-tag">---</span>
                     </span>
                 </div>
@@ -262,8 +269,14 @@
             <!-- 施工登记表单 (仅在 'in_stock' 状态下显示) -->
             <div id="serviceFormArea" style="display: none;">
                 <h3>🎉 产品待施工作业，请登记</h3>
-                <input type="text" id="techName" placeholder="施工技师/单位名称" required>
-                <textarea id="clientInfo" placeholder="客户信息/施工地址/部位 (必填)" rows="3" required></textarea>
+                
+                <!-- 拆分后的输入框 -->
+                <input type="text" id="techName" placeholder="* 施工技师/单位名称 (必填)" required>
+                <input type="text" id="clientName" placeholder="* 客户姓名 (必填)">
+                <input type="text" id="clientPhone" placeholder="* 客户电话/联系方式 (必填)">
+                <input type="text" id="serviceAddress" placeholder="* 施工地址 (必填)">
+                <input type="text" id="serviceArea" placeholder="* 施工部位 (必填, 如: 车内所有内饰)" required>
+
                 <button class="btn btn-accent" id="registerBtn" onclick="registerService()">确认登记并标记施工完成</button>
             </div>
             
@@ -272,26 +285,40 @@
                  <div class="section-title">最新施工记录 (Service Log)</div>
                  <div class="data-row">
                     <span class="data-label">施工单位/技师</span>
-                    <span id="logTechName">---</span>
+                    <span id="logTechName" class="data-value">---</span>
                  </div>
                  <div class="data-row">
                     <span class="data-label">施工时间</span>
-                    <span id="logDate">---</span>
+                    <span id="logDate" class="data-value">---</span>
+                 </div>
+                 <!-- 新增的解析字段的展示位 -->
+                 <div class="data-row">
+                    <span class="data-label">客户姓名</span>
+                    <span id="logClientName" class="data-value">---</span>
                  </div>
                  <div class="data-row">
-                    <span class="data-label">客户信息/部位</span>
-                    <span id="logClientInfo">---</span>
+                    <span class="data-label">客户电话</span>
+                    <span id="logClientPhone" class="data-value">---</span>
                  </div>
                  <div class="data-row">
-                    <span class="data-label">治理结果</span>
-                    <span style="color:var(--accent-color)">已施工作业，档案锁定</span>
+                    <span class="data-label">施工地址</span>
+                    <span id="logServiceAddress" class="data-value">---</span>
+                 </div>
+                 <div class="data-row">
+                    <span class="data-label">施工部位</span>
+                    <span id="logServiceArea" class="data-value">---</span>
+                 </div>
+
+                 <div class="data-row">
+                    <span class="data-label">档案状态</span>
+                    <span class="data-value" style="color:var(--accent-color); font-weight: bold;">已施工作业，档案锁定</span>
                  </div>
             </div>
             
         </div>
 
         <div class="footer">
-            © 2025 TIREALM Technology.
+            © 2024 TIREALM Technology.
         </div>
     </div>
 
@@ -299,11 +326,10 @@
         // ======================== 配置区 (请替换为新项目的密钥) =========================
         // ⚠️ 修复：请务必将以下占位符替换为你真实的 Supabase 项目 URL 和 Anon Key！
         // 示例 URL 格式：'https://<项目引用ID>.supabase.co'
-        const SUPABASE_URL = 'https://evksoxqnxyvtxvzmuufy.supabase.co'; 
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2a3NveHFueHl2dHh2em11dWZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQxMjYwMjEsImV4cCI6MjA3OTcwMjAyMX0.R-n669k8gqOl5US1rFk7vJdqgAcRm_SBWvJPovMdcAU';
+        const SUPABASE_URL = 'https://your-project-reference.supabase.co'; 
+        const SUPABASE_ANON_KEY = 'your-actual-anon-key-here-please-replace-this-placeholder';
         // ======================================================
 
-        // 修复：将客户端实例命名为 client，避免与全局的 supabase 库对象冲突
         const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         let currentProductCode = null; // 存储当前查询到的编码，用于登记
 
@@ -333,6 +359,33 @@
                 minute: '2-digit'
             });
         }
+
+        // --- 辅助函数：解析结构化的 client_info 字符串 ---
+        function parseClientInfo(infoString) {
+            const parsed = {
+                clientName: '未填写',
+                clientPhone: '未填写',
+                serviceAddress: '未填写',
+                serviceArea: '未填写'
+            };
+
+            if (!infoString) return parsed;
+            
+            // 使用 Map/Reduce 方式解析 "Label: Value | ..." 格式
+            infoString.split(' | ').forEach(part => {
+                const [label, ...valueParts] = part.split(': ');
+                const value = valueParts.join(': ').trim(); // 应对值中可能包含冒号的情况
+                
+                if (label.startsWith('客户姓名') && value) parsed.clientName = value;
+                else if (label.startsWith('客户电话') && value) parsed.clientPhone = value;
+                else if (label.startsWith('施工地址') && value) parsed.serviceAddress = value;
+                else if (label.startsWith('施工部位') && value) parsed.serviceArea = value;
+                // 兼容旧格式，如果解析失败，则将原始信息赋给地址
+                else if (infoString.length < 50) parsed.serviceAddress = infoString;
+            });
+
+            return parsed;
+        }
         
         // --- A. 查询产品档案 (SELECT) 逻辑 ---
         async function queryData() {
@@ -361,7 +414,7 @@
             // 锁定按钮，防止重复点击
             document.querySelector('.btn').disabled = true;
 
-            const { data: products, error } = await client // 使用 client
+            const { data: products, error } = await client
                 .from('products')
                 .select('code, name, batch, status')
                 .eq('code', currentProductCode)
@@ -372,7 +425,6 @@
 
             if (error) {
                 console.error('Supabase Query Error:', error);
-                // 即使出现错误，也显示一个更温和的提示，并建议用户检查密钥
                 displayMessage(`数据库连接失败或网络错误！请检查 SUPABASE_URL 和 KEY 是否正确配置。`);
                 return;
             }
@@ -394,12 +446,12 @@
                 if (product.status === 'in_stock') {
                     // 产品在库，显示登记表单
                     document.getElementById('serviceFormArea').style.display = 'block';
-                    document.getElementById('serviceLogDisplay').style.display = 'none'; // 确保隐藏历史记录
+                    document.getElementById('serviceLogDisplay').style.display = 'none'; 
                     
                 } else if (product.status === 'serviced') {
                     // 产品已服务，尝试获取最新的服务记录并显示
                     await fetchAndDisplayServiceLog(currentProductCode);
-                    document.getElementById('serviceFormArea').style.display = 'none'; // 确保隐藏表单
+                    document.getElementById('serviceFormArea').style.display = 'none'; 
                     document.getElementById('serviceLogDisplay').style.display = 'block';
                 }
 
@@ -410,7 +462,7 @@
         
         // --- 辅助函数：获取并显示服务记录 ---
         async function fetchAndDisplayServiceLog(code) {
-             const { data: logs, error } = await client // 使用 client
+             const { data: logs, error } = await client
                 .from('service_logs')
                 .select('technician_name, client_info, created_at')
                 .eq('product_code_ref', code)
@@ -418,42 +470,65 @@
                 .limit(1);
 
             if (error || !logs || logs.length === 0) {
-                 // 如果查不到记录，可能是手动修改了状态，显示默认值
                  document.getElementById('logTechName').innerText = '数据丢失或记录异常';
                  document.getElementById('logDate').innerText = '---';
-                 document.getElementById('logClientInfo').innerText = '请联系管理员核对';
+                 document.getElementById('logClientName').innerText = '---';
+                 document.getElementById('logClientPhone').innerText = '---';
+                 document.getElementById('logServiceAddress').innerText = '---';
+                 document.getElementById('logServiceArea').innerText = '---';
                  return;
             }
 
             const log = logs[0];
+            const parsedInfo = parseClientInfo(log.client_info);
+
             document.getElementById('logTechName').innerText = log.technician_name || '未填写';
             document.getElementById('logDate').innerText = formatTime(log.created_at);
-            document.getElementById('logClientInfo').innerText = log.client_info || '未填写';
+            
+            // 填充解析后的客户信息
+            document.getElementById('logClientName').innerText = parsedInfo.clientName;
+            document.getElementById('logClientPhone').innerText = parsedInfo.clientPhone;
+            document.getElementById('logServiceAddress').innerText = parsedInfo.serviceAddress;
+            document.getElementById('logServiceArea').innerText = parsedInfo.serviceArea;
         }
 
 
         // --- B. 登记服务记录 (INSERT) 逻辑 ---
         async function registerService() {
+            // 获取所有独立字段的值
             const techName = document.getElementById('techName').value.trim();
-            const clientInfo = document.getElementById('clientInfo').value.trim();
-            const registerBtn = document.getElementById('registerBtn');
+            const clientName = document.getElementById('clientName').value.trim();
+            const clientPhone = document.getElementById('clientPhone').value.trim();
+            const serviceAddress = document.getElementById('serviceAddress').value.trim();
+            const serviceArea = document.getElementById('serviceArea').value.trim();
             
-            if (!techName || !clientInfo) {
-                displayMessage("技师名称和客户信息/施工部位都必须填写！");
+            // 必填项校验 (确保所有字段都被填写)
+            if (!techName || !clientName || !clientPhone || !serviceAddress || !serviceArea) {
+                displayMessage("所有标记 '*' 的登记信息都必须填写完整！");
                 return;
             }
             
+            const registerBtn = document.getElementById('registerBtn');
             registerBtn.disabled = true;
             registerBtn.innerText = '登记中...';
+
+            // ⭐ 核心逻辑：将所有拆分字段合并为一个结构化字符串，存入 client_info
+            const combinedClientInfo = [
+                `客户姓名: ${clientName}`,
+                `客户电话: ${clientPhone}`,
+                `施工地址: ${serviceAddress}`,
+                `施工部位: ${serviceArea}`
+            ].join(' | ');
+
 
             const logData = {
                 product_code_ref: currentProductCode,
                 technician_name: techName,
-                client_info: clientInfo
+                client_info: combinedClientInfo // 存入合并后的结构化信息
             };
 
             // RLS 策略允许 anon 用户插入到 service_logs
-            const { error } = await client // 使用 client
+            const { error } = await client
                 .from('service_logs')
                 .insert([logData]);
 
@@ -467,7 +542,6 @@
             }
 
             // 登记成功后，由于数据库触发器会自动更新 products.status
-            // 我们只需要刷新界面即可看到最新的 'serviced' 状态
             displayMessage(`施工档案登记成功！产品 ${currentProductCode} 已标记为 [已施工作业]`, 'success');
             
             // 重新查询数据，更新界面状态和显示服务记录
@@ -487,7 +561,3 @@
     </script>
 </body>
 </html>
-
-
-
-
