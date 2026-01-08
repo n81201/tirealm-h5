@@ -4,23 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TiRealm® TICS - 产品档案及服务登记</title>
+    
+    <!-- 性能优化：DNS 预解析 -->
+    <link rel="dns-prefetch" href="https://evksoxqnxyvtxvzmuufy.supabase.co">
+    
     <!-- 核心库引入 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://unpkg.com/html5-qrcode"></script>
+    <!-- 扫码库非首屏核心，改为异步加载 -->
+    <script src="https://unpkg.com/html5-qrcode" defer></script>
+    
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
-
+        /* 优化方案：移除 Google Fonts @import。
+           使用系统字体栈：在 iOS 上自动调用苹方/SF Pro，安卓上调用 Noto Sans，
+           这是目前兼容性、美观度与加载速度的最佳平衡点。
+        */
         body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            background-color: #f0f4f8;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            background-color: #f8fafc;
             background-image: 
-                radial-gradient(at 0% 0%, rgba(6, 182, 212, 0.08) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(30, 41, 59, 0.08) 0px, transparent 50%);
+                radial-gradient(at 0% 0%, rgba(6, 182, 212, 0.05) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(30, 41, 59, 0.05) 0px, transparent 50%);
             color: #1e293b;
             min-height: 100vh;
             -webkit-font-smoothing: antialiased;
+            overscroll-behavior-y: contain; /* 防止移动端下拉刷新 */
         }
 
         .app-viewport {
@@ -39,18 +47,18 @@
             font-size: 0.45em;
             vertical-align: super;
             margin-left: 2px;
-            font-weight: 200;
-            opacity: 0.5;
+            font-weight: 300;
+            opacity: 0.6;
             display: inline-block;
             transform: translateY(-4px);
         }
 
         .tech-card-light {
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.8);
-            box-shadow: 0 20px 40px -12px rgba(15, 23, 42, 0.08);
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 1);
+            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.04);
             width: 100%;
             border-radius: 1.75rem;
         }
@@ -65,14 +73,16 @@
         }
 
         .input-tech {
-            font-family: 'JetBrains Mono', monospace;
+            /* 移除外部代码字体，使用系统等宽字体 */
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             background: #ffffff;
             border: 1px solid #e2e8f0;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
+            appearance: none; /* 清除iOS默认阴影 */
         }
         .input-tech:focus {
             border-color: #06b6d4;
-            box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15);
+            box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1);
             outline: none;
         }
 
@@ -80,13 +90,15 @@
             background: #0f172a;
             color: white;
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            touch-action: manipulation;
         }
-        .btn-primary:active { transform: scale(0.98); }
+        .btn-primary:active { transform: scale(0.97); }
 
         .btn-accent {
             background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
             color: white;
-            box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
+            box-shadow: 0 4px 12px rgba(6, 182, 212, 0.2);
+            touch-action: manipulation;
         }
 
         .status-badge {
@@ -100,15 +112,27 @@
         .status-serviced { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
 
         #scannerModal {
-            background: rgba(15, 23, 42, 0.95);
+            background: rgba(15, 23, 42, 0.98);
             backdrop-filter: blur(10px);
         }
+
+        /* 简单加载动画 */
+        .loading-dot {
+            display: inline-block;
+            width: 4px;
+            height: 4px;
+            background: currentColor;
+            border-radius: 50%;
+            margin-left: 2px;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
     </style>
 </head>
 <body>
 
     <div class="app-viewport">
-        <!-- Header: 修改 TiRealm 及 R 标 -->
+        <!-- Header -->
         <header class="w-full pt-10 pb-6 text-center">
             <div class="inline-flex items-center justify-center px-3 py-1 mb-4 rounded-full bg-white/60 border border-slate-200 backdrop-blur-sm">
                 <div class="w-1.5 h-1.5 rounded-full bg-cyan-500 mr-2 animate-pulse"></div>
@@ -123,14 +147,14 @@
         <main class="w-full space-y-5 pb-10">
             <div id="messageBox" class="hidden w-full p-3 rounded-xl text-center text-xs font-bold mb-2 transition-all"></div>
 
-            <!-- 1. 产品档案查询 (修改文案) -->
+            <!-- 1. 产品档案查询 -->
             <section class="tech-card-light p-6">
                 <div class="flex items-center justify-between mb-6">
                     <h2 class="text-sm font-bold text-slate-800 flex items-center gap-2">
                         <svg class="w-4 h-4 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                         产品档案查询
                     </h2>
-                    <span class="text-[10px] text-slate-400 font-mono tracking-tighter">NODE_V1.4</span>
+                    <span class="text-[10px] text-slate-400 font-mono tracking-tighter">NODE_V1.5_OPT</span>
                 </div>
 
                 <div class="space-y-4">
@@ -138,7 +162,7 @@
                            class="input-tech w-full rounded-2xl py-4 px-4 text-center text-xl font-bold tracking-[0.15em] text-slate-800 placeholder:text-slate-200 placeholder:tracking-normal placeholder:font-sans">
                     
                     <div class="flex gap-3">
-                        <button onclick="queryData()" class="btn-primary flex-[2] py-4 rounded-2xl font-bold text-xs tracking-widest uppercase action-btn">
+                        <button id="queryBtn" onclick="queryData()" class="btn-primary flex-[2] py-4 rounded-2xl font-bold text-xs tracking-widest uppercase action-btn">
                             查询记录
                         </button>
                         <button onclick="startScanner()" class="bg-white border border-slate-200 w-16 py-4 rounded-2xl flex items-center justify-center action-btn">
@@ -149,7 +173,7 @@
             </section>
 
             <!-- 2. 查询结果 -->
-            <section id="resultArea" class="hidden tech-card-light p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <section id="resultArea" class="hidden tech-card-light p-6">
                 <div class="flex items-center justify-between mb-5 pb-4 border-b border-slate-100">
                     <span class="text-[10px] font-bold tracking-widest text-slate-400 uppercase">Archive Details</span>
                     <div id="pStatusContainer">
@@ -245,7 +269,7 @@
     </div>
 
     <!-- 扫码模态框 -->
-    <div id="scannerModal" class="hidden fixed inset-0 z-[100] flex-col items-center justify-center bg-slate-900/95 backdrop-blur-sm p-6">
+    <div id="scannerModal" class="hidden fixed inset-0 z-[100] flex-col items-center justify-center bg-slate-900/95 p-6">
         <div class="w-full max-w-sm border-2 border-cyan-500 rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(6,182,212,0.3)]">
             <div id="reader"></div>
         </div>
@@ -265,7 +289,7 @@
     </div>
 
     <script>
-        // ======================== 核心逻辑 (恢复自原始版本) =========================
+        // ======================== 核心逻辑 =========================
         const SUPABASE_URL = 'https://evksoxqnxyvtxvzmuufy.supabase.co'; 
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2a3NveHFueHl2dHh2em11dWZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQxMjYwMjEsImV4cCI6MjA3OTcwMjAyMX0.R-n669k8gqOl5US1rFk7vJdqgAcRm_SBWvJPovMdcAU';
 
@@ -275,10 +299,6 @@
 
         function getSupabaseClient() {
             if (supabaseClient) return supabaseClient;
-            if (!SUPABASE_URL || SUPABASE_URL === '请替换') {
-                displayMessage("请配置有效的 SUPABASE_URL");
-                throw new Error("Invalid Config");
-            }
             supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
             return supabaseClient;
         }
@@ -314,29 +334,44 @@
 
         async function queryData() {
             const input = document.getElementById('productCode');
+            const queryBtn = document.getElementById('queryBtn');
             let code = input.value.trim().toUpperCase();
+            
             if (!code) return displayMessage("请输入产品编码");
             if (!code.startsWith('TI-') && code.length >= 4) {
                 code = 'TI-' + code;
                 input.value = code;
             }
+            
             currentProductCode = code;
-            document.querySelectorAll('.action-btn').forEach(b => b.disabled = true);
+            
+            // 按钮 Loading 状态优化
+            const originalText = queryBtn.innerText;
+            queryBtn.disabled = true;
+            queryBtn.innerHTML = `查询中<span class="loading-dot"></span>`;
+
             try {
                 const client = getSupabaseClient();
                 const { data, error } = await client.from('products').select('*').eq('code', code).single();
-                document.querySelectorAll('.action-btn').forEach(b => b.disabled = false);
+                
+                queryBtn.disabled = false;
+                queryBtn.innerText = originalText;
+
                 if (error || !data) {
                     document.getElementById('resultArea').classList.add('hidden');
                     return displayMessage("查无此码，请核对正品标识");
                 }
+
                 document.getElementById('pCode').innerText = data.code;
                 document.getElementById('pName').innerText = data.name;
                 document.getElementById('pBatch').innerText = data.batch || '标准批次';
+                
                 const st = document.getElementById('pStatus');
                 st.innerText = data.status === 'in_stock' ? '待施工' : '已完成';
                 st.className = `status-badge ${data.status === 'in_stock' ? 'status-in_stock' : 'status-serviced'}`;
+                
                 document.getElementById('resultArea').classList.remove('hidden');
+                
                 if (data.status === 'in_stock') {
                     document.getElementById('serviceFormArea').classList.remove('hidden');
                     document.getElementById('serviceLogDisplay').classList.add('hidden');
@@ -345,8 +380,14 @@
                     document.getElementById('serviceLogDisplay').classList.remove('hidden');
                     fetchLog(code);
                 }
+                
+                // 滚动到结果区
+                document.getElementById('resultArea').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
             } catch (e) {
-                document.querySelectorAll('.action-btn').forEach(b => b.disabled = false);
+                queryBtn.disabled = false;
+                queryBtn.innerText = originalText;
+                displayMessage("连接异常，请检查网络");
             }
         }
 
@@ -375,10 +416,11 @@
             }
             const btn = document.getElementById('registerBtn');
             btn.disabled = true;
-            btn.innerText = "提交中...";
+            btn.innerHTML = `提交中<span class="loading-dot"></span>`;
+            
             try {
                 const client = getSupabaseClient();
-                const infoStr = `客户姓名: ${vals.clientName} | 客户电话: ${vals.clientPhone} | 施工地址: ${vals.serviceAddress} | 施工部位: ${vals.serviceArea}`;
+                const infoStr = `姓名: ${vals.clientName} | 电话: ${vals.clientPhone} | 地址: ${vals.serviceAddress} | 部位: ${vals.serviceArea}`;
                 const { error } = await client.from('service_logs').insert([{
                     product_code_ref: currentProductCode,
                     technician_name: vals.techName,
@@ -396,7 +438,9 @@
 
         function startScanner() {
             document.getElementById('scannerModal').style.display = 'flex';
-            if (!html5QrcodeScanner) html5QrcodeScanner = new Html5Qrcode("reader");
+            if (!html5QrcodeScanner) {
+                html5QrcodeScanner = new Html5Qrcode("reader");
+            }
             html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
                 document.getElementById('productCode').value = text.toUpperCase().trim();
                 closeScanner();
